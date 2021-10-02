@@ -1,0 +1,166 @@
+---
+title: "4180_CPSC_Midterm_Project1"
+author: "Yatri Patel"
+date: "9/30/2021"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+# CPSC 4180 - Midterm Project 1 
+
+In this exam, you are asked to analyze the Global COVID19 time-series data at https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series (Links to an external site.) You are expected to generate a figure that overlays the COVID19 daily cases in a country with the average Google Global Mobility data available at:  https://www.google.com/covid19/mobility/ (Links to an external site.). You are recommended to average the regional mobility values and daily cases in that country in order to overlay with this COVID19 cases at the entire country. For undergraduates,  you are expected to investigate the COVID19 daily cases and mobility in one country,  either Italy, UK, or India. 
+
+# Importing libraries needed for the project
+
+```{r}
+rm(list = ls()) #clean up the work space
+library(tidyverse)
+library(lubridate)
+library(reshape2)
+library(ggplot2)
+library(dplyr)
+```
+
+# Load the covid-19 data 
+
+```{r}
+#link to the covid global data
+#covid_global <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
+#download the covid data 
+#download.file(covid_global, 'time_series_covid19_confirmed_global.csv')
+#read the downloaded file
+tb = read_csv('time_series_covid19_confirmed_global.csv')
+```
+
+# Italy Daily COVID Cases data  
+
+```{r}
+#assign my country variable to country of choice
+my_country <- "Italy"
+```
+
+```{r}
+tb1 <- tb %>% dplyr::select(12:length(tb[1,])) %>% as.matrix()
+tb1 <- as.data.frame(t(tb1))
+
+head(tb1)
+
+names(tb1) = tb$`Country/Region`
+
+current_dates = names(tb)[12:length(tb[1,])]
+tb1$dates = mdy(current_dates)
+head(tb1)
+```
+
+# Get daily confirmed covid cases data for the country of choice
+
+```{r}
+#number of the days
+days_window = 609
+endday = today(tzone = 'CET') #define time zone
+
+tb_italy <- tb1 %>%
+  dplyr::select(all_of(my_country), 'dates') %>%
+  dplyr::filter(between(dates, endday-ddays(days_window), endday))
+
+head(tb_italy)
+```
+
+```{r}
+#calculate the daily covid cases of italy
+local_daily_italy = c(0, diff(tb_italy[,1]))
+
+tb_daily_italy = data.frame(local_daily_italy)
+
+head(tb_daily_italy)
+```
+
+```{r}
+tb_daily_italy$YMD = mdy(row.names(tb_italy))
+head(tb_daily_italy)
+```
+
+```{r}
+names(tb_daily_italy)[1] = my_country 
+```
+
+# Plotting the daily covid-19 cases
+
+```{r}
+my_plot <-  ggplot(tb_daily_italy, aes(x=YMD, y = tb_daily_italy[,1]))
+my_plot + geom_point() + stat_smooth(span= 0.3) + ggtitle("Daily COVID-19 Cases in Italy") +ylab("Daily cases") + xlab("Time")
+```
+
+# Mobility Data
+
+```{r}
+#read mobility data csv
+tbGM = read_csv('Global_Mobility_Report.csv')
+head(tbGM)
+```
+
+```{r}
+#select the mobility data of the country
+tbGM_italy <- tbGM %>% filter(country_region == my_country)
+head(tbGM_italy)
+```
+
+```{r}
+#max date in the mobility data
+max(tbGM_italy$date)
+```
+
+```{r}
+head(tb_daily_italy)
+```
+
+```{r}
+#make a copy of the daily italy covid cases data 
+tb_daily_italy_copy = tb_daily_italy
+names(tb_daily_italy_copy) = c('DailyCases', 'date')
+head(tb_daily_italy_copy)
+```
+
+```{r}
+#merge the mobility and the covid data
+tb_GMCovid_Italy = merge(x=tb_daily_italy_copy, y=tbGM_italy, by = 'date', all.y = TRUE)
+
+#remove the date column 
+tb_GMCovid_Italy2 <- tb_GMCovid_Italy %>% dplyr::select(2, 11:16)
+head(tb_GMCovid_Italy2)
+```
+
+```{r}
+#scale the data set 
+tb_GMCovid_Italy_scaled <- data.frame(scale(tb_GMCovid_Italy2))
+
+head(tb_GMCovid_Italy_scaled)
+```
+
+```{r}
+#add the date to the scaled data
+tb_GMCovid_Italy_scaled$date = tb_GMCovid_Italy$date
+head(tb_GMCovid_Italy_scaled)
+```
+
+# Plot the overlayed map 
+
+```{r}
+#select the columns
+selected_columns = c('DailyCases', 'workplaces_percent_change_from_baseline', 'residential_percent_change_from_baseline')
+
+#melt the two dataframes
+df_melt <- melt (tb_GMCovid_Italy_scaled, measure.vars = selected_columns, value.name = "Value", variable.name= "variable")
+
+#plot the melted dataframe
+plot <- ggplot(df_melt, aes(x=date, y=df_melt$Value, color=variable)) + stat_smooth(span= 0.3)
+
+#add title and x and y label 
+plot +ggtitle("Overlay plot of mobility and covid cases data") + ylab("Value") + xlab("Date")
+```
+
+
