@@ -163,4 +163,17 @@ plot <- ggplot(df_melt, aes(x=date, y=df_melt$Value, color=variable)) + stat_smo
 plot +ggtitle("Overlay plot of mobility and covid cases data") + ylab("Value") + xlab("Date")
 ```
 
+```{r}
+#select the columns
+selected_columns = c('DailyCases', 'workplaces_percent_change_from_baseline', 'residential_percent_change_from_baseline')
+
+#melt the two dataframes
+df_melt <- melt (tb_GMCovid_Italy_scaled, measure.vars = selected_columns, value.name = "Value", variable.name= "variable")
+
+#plot the melted dataframe
+plot <- ggplot(df_melt, aes(x=date, y=df_melt$Value, color=variable)) + stat_smooth(span= 0.3)
+
+#add title and x and y label 
+plot +ggtitle("Overlay plot of mobility and covid cases data") + ylab("Value") + xlab("Date")
+```
 
